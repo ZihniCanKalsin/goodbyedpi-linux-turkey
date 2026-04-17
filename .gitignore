@@ -26,3 +26,6 @@ core.*
 
 # Local test scratch
 /tmp/
+
+# Claude Code per-user permissions (shared .claude/settings.json may still be committed)
+.claude/settings.local.json

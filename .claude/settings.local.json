@@ -1,8 +1,0 @@
-{
-  "permissions": {
-    "allow": [
-      "Bash(pkg-config --modversion libnetfilter_queue libmnl)",
-      "WebFetch(domain:github.com)"
-    ]
-  }
-}
