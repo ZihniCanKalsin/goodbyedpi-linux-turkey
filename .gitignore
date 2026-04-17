@@ -1,0 +1,28 @@
+# C build artifacts
+*.o
+*.a
+*.so
+*.d
+goodbyedpi-linux
+
+# Editor / IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Windows NTFS "mark of the web" metadata streams — appear if the repo
+# ever gets cut-copied through a Windows filesystem.
+*:Zone.Identifier
+*Zone.Identifier
+
+# Runtime artifacts
+*.log
+*.pid
+core
+core.*
+
+# Local test scratch
+/tmp/

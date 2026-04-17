@@ -1,0 +1,39 @@
+name: build
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-22.04, ubuntu-24.04]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libnetfilter-queue-dev libmnl-dev gcc make pkg-config
+
+      - name: Build
+        run: make
+
+      - name: Smoke-test CLI parse path
+        run: |
+          ./goodbyedpi-linux -h | head -3
+          ./goodbyedpi-linux -5 -v 2>&1 | grep 'config:'
+          ./goodbyedpi-linux -9 --dns-addr 1.1.1.1 --dns-port 53 2>&1 \
+            | grep 'wrong_seq=1 wrong_chk=1 quic=1'
+
+      - name: Lint shell scripts
+        run: |
+          sudo apt-get install -y shellcheck
+          # -x follows sourced scripts; SC1091 = can't find sourced files on CI
+          shellcheck -x -e SC1091 scripts/*.sh
