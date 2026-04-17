@@ -1,19 +1,20 @@
 #!/usr/bin/env bash
-# deps-install.sh — optional helper that detects the package manager and
-# installs the build/runtime dependencies for goodbyedpi-linux.
+# deps-install.sh — paket yöneticisini algılayıp goodbyedpi-linux'un derleme
+# / çalışma bağımlılıklarını kuran opsiyonel yardımcı.
 #
-# Required at build time : libnetfilter_queue dev headers, libmnl dev headers,
-#                          a C compiler, make, pkg-config.
-# Required at run time   : iptables (and ip6tables), kernel nfnetlink_queue.
+# Derleme zamanında gerekli  : libnetfilter_queue dev başlıkları, libmnl dev
+#                              başlıkları, bir C derleyici, make, pkg-config.
+# Çalışma zamanında gerekli  : iptables (ve ip6tables), çekirdek
+#                              nfnetlink_queue.
 #
-# If none of the detected package managers match yours, install manually:
-#     libnetfilter_queue-dev (or -devel), libmnl-dev (or -devel),
-#     gcc (or cc), make, pkg-config, iptables.
+# Algılanan paket yöneticilerinden hiçbiri sizinkine uymuyorsa manuel kurun:
+#     libnetfilter_queue-dev (veya -devel), libmnl-dev (veya -devel),
+#     gcc (veya cc), make, pkg-config, iptables.
 
 set -eu
 
 if [ "$(id -u)" -ne 0 ]; then
-    echo "must be run as root (sudo)" >&2
+    echo "root (sudo) olarak çalıştırılmalıdır" >&2
     exit 1
 fi
 
@@ -36,8 +37,8 @@ elif command -v zypper >/dev/null 2>&1; then
 elif command -v apk >/dev/null 2>&1; then
     apk add libnetfilter_queue-dev libmnl-dev gcc make pkgconf iptables musl-dev linux-headers
 else
-    echo "no supported package manager detected; install deps manually" >&2
+    echo "desteklenen bir paket yöneticisi bulunamadı; bağımlılıkları manuel kurun" >&2
     exit 1
 fi
 
-echo "dependencies installed"
+echo "bağımlılıklar kuruldu"

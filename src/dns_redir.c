@@ -9,17 +9,18 @@
 #include <netinet/ip6.h>
 #include <netinet/udp.h>
 
-/* Tracks an outbound DNS query so we can reverse the server-address rewrite
- * on the reply. Key = (client src ip, client src port, dns txid). */
+/* Giden bir DNS sorgusunu takip eder, böylece cevapta sunucu-adresi
+ * yeniden yazımını tersine çevirebiliriz.
+ * Anahtar = (istemci src ip, istemci src port, dns txid). */
 #define MAP_SIZE 4096
 #define MAP_TTL_SEC 30
 
 struct map4 {
     uint8_t  used;
-    uint32_t saddr;      /* client */
+    uint32_t saddr;      /* istemci */
     uint16_t sport;
     uint16_t txid;
-    uint32_t orig_daddr; /* original dns server as seen by client */
+    uint32_t orig_daddr; /* istemcinin gördüğü orijinal dns sunucusu */
     uint16_t orig_dport;
     time_t   expire;
 };

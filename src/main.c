@@ -12,47 +12,47 @@
 
 static void usage(const char *argv0) {
     fprintf(stderr,
-        "GoodbyeDPI (Linux port) — Turkey fork subset\n"
-        "Usage: %s [options]\n"
+        "GoodbyeDPI (Linux port'u) — Turkey fork alt kümesi\n"
+        "Kullanım: %s [seçenekler]\n"
         "\n"
-        "Presets (match Windows GoodbyeDPI semantics):\n"
+        "Ön ayarlar (Windows GoodbyeDPI semantikleriyle eşleşir):\n"
         "  -5                          -f 2 -e 2 --reverse-frag --fake-packet\n"
         "                              --auto-ttl --max-payload-size 1200\n"
         "  -9                          -f 2 -e 2 --reverse-frag --fake-packet\n"
         "                              --wrong-seq --wrong-chksum -q --max-payload-size 1200\n"
         "\n"
-        "Individual flags:\n"
-        "  -f N                        fragment HTTP request at N bytes\n"
-        "  -e N                        fragment HTTPS TLS ClientHello at N bytes\n"
-        "  --auto-ttl                  low-hop-limit decoy heuristic (fixed hop 4)\n"
-        "  --reverse-frag              send fragments in reverse order\n"
-        "  --fake-packet               emit decoy ClientHello/HTTP ahead of real fragments\n"
-        "  --wrong-seq                 decoy with bogus TCP sequence\n"
-        "  --wrong-chksum              decoy with invalid TCP checksum\n"
-        "  --max-payload               legacy no-op marker (compat with Windows CLI)\n"
-        "  -q                          block QUIC (UDP/443)\n"
-        "  --set-ttl N                 TTL for decoy packets (1..255)\n"
-        "  --dns-addr IP               redirect UDP/53 → IP:--dns-port\n"
-        "  --dns-port N                (default 53)\n"
-        "  --dnsv6-addr IP6            IPv6 DNS redirect target\n"
-        "  --dnsv6-port N              (default 53)\n"
-        "  --queue-num N               NFQUEUE number (default 200)\n"
-        "  -v                          verbose debug logging\n"
-        "  -h                          this help\n"
+        "Tek tek bayraklar:\n"
+        "  -f N                        HTTP isteğini N baytta böl\n"
+        "  -e N                        HTTPS TLS ClientHello'yu N baytta böl\n"
+        "  --auto-ttl                  tuzak paket için düşük atlama limiti sezgisi (sabit 4)\n"
+        "  --reverse-frag              parçaları ters sırada gönder\n"
+        "  --fake-packet               gerçek parçalardan önce sahte ClientHello/HTTP yem üret\n"
+        "  --wrong-seq                 hatalı TCP sıra numarasıyla tuzak\n"
+        "  --wrong-chksum              geçersiz TCP sağlama toplamıyla tuzak\n"
+        "  --max-payload               eski no-op işaretçi (Windows CLI uyumluluğu için)\n"
+        "  -q                          QUIC'i (UDP/443) engelle\n"
+        "  --set-ttl N                 tuzak paketlerin TTL'si (1..255)\n"
+        "  --dns-addr IP               UDP/53'ü IP:--dns-port'a yönlendir\n"
+        "  --dns-port N                (varsayılan 53)\n"
+        "  --dnsv6-addr IP6            IPv6 DNS yönlendirme hedefi\n"
+        "  --dnsv6-port N              (varsayılan 53)\n"
+        "  --queue-num N               NFQUEUE numarası (varsayılan 200)\n"
+        "  -v                          ayrıntılı hata ayıklama günlüğü\n"
+        "  -h                          bu yardım\n"
         "\n"
-        "Requires root (or CAP_NET_ADMIN + CAP_NET_RAW) and iptables rules\n"
-        "queuing matching traffic to this tool (see scripts/iptables-up.sh).\n",
+        "root (ya da CAP_NET_ADMIN + CAP_NET_RAW) ve eşleşen trafiği bu araca\n"
+        "kuyruklayan iptables kuralları gerektirir (bkz. scripts/iptables-up.sh).\n",
         argv0);
 }
 
-/* Mirrors Windows goodbyedpi.c case '5':
+/* Windows goodbyedpi.c '5' durumunu yansıtır:
  *   do_fragment_http = do_fragment_https = 1
  *   do_reverse_frag = do_native_frag = 1
  *   http_fragment_size = https_fragment_size = 2
  *   do_fake_packet = 1
  *   do_auto_ttl = 1
  *   max_payload_size = 1200
- * (do_native_frag is approximated by our TCP-level split.) */
+ * (do_native_frag burada TCP seviyesi bölme ile yaklaştırılır.) */
 static void apply_preset_5(void) {
     gbd_cfg.frag_http        = 2;
     gbd_cfg.frag_https       = 2;
@@ -63,10 +63,10 @@ static void apply_preset_5(void) {
     gbd_cfg.max_payload_size = 1200;
 }
 
-/* Mirrors Windows goodbyedpi.c case '9' → '8' → '7' fall-through:
- *   fragment at 2 + reverse + native + fake_packet + wrong_chksum + wrong_seq + block_quic
+/* Windows goodbyedpi.c '9' → '8' → '7' fall-through'unu yansıtır:
+ *   2 baytta böl + reverse + native + fake_packet + wrong_chksum + wrong_seq + block_quic
  *   max_payload_size = 1200
- * Notably, upstream does NOT set do_auto_ttl for -9. */
+ * Dikkat: üstakım -9 için do_auto_ttl'yi AYARLAMAZ. */
 static void apply_preset_9(void) {
     gbd_cfg.frag_http        = 2;
     gbd_cfg.frag_https       = 2;
@@ -130,18 +130,18 @@ int main(int argc, char **argv) {
         case 'q': gbd_cfg.block_quic = 1; break;
         case 'v': gbd_verbose = 1; break;
         case OPT_AUTO_TTL:
-            /* upstream: --auto-ttl implies do_fake_packet=1 */
+            /* üstakım: --auto-ttl do_fake_packet=1 anlamına gelir */
             gbd_cfg.auto_ttl = 1;
             gbd_cfg.fake_packet = 1;
             break;
         case OPT_REVERSE_FRAG: gbd_cfg.reverse_frag = 1; break;
         case OPT_WRONG_SEQ:
-            /* upstream: --wrong-seq implies do_fake_packet=1 */
+            /* üstakım: --wrong-seq do_fake_packet=1 anlamına gelir */
             gbd_cfg.wrong_seq = 1;
             gbd_cfg.fake_packet = 1;
             break;
         case OPT_WRONG_CHKSUM:
-            /* upstream: --wrong-chksum implies do_fake_packet=1 */
+            /* üstakım: --wrong-chksum do_fake_packet=1 anlamına gelir */
             gbd_cfg.wrong_chksum = 1;
             gbd_cfg.fake_packet = 1;
             break;
@@ -149,15 +149,15 @@ int main(int argc, char **argv) {
         case OPT_SET_TTL:
             gbd_cfg.set_ttl = atoi(optarg);
             if (gbd_cfg.set_ttl < 1 || gbd_cfg.set_ttl > 255) {
-                LOGE("--set-ttl must be 1..255");
+                LOGE("--set-ttl 1..255 aralığında olmalıdır");
                 return 2;
             }
-            /* upstream: --set-ttl N implies do_fake_packet=1 */
+            /* üstakım: --set-ttl N do_fake_packet=1 anlamına gelir */
             gbd_cfg.fake_packet = 1;
             break;
         case OPT_DNS_ADDR:
             if (inet_pton(AF_INET, optarg, &gbd_cfg.dns4_addr) != 1) {
-                LOGE("--dns-addr: invalid IPv4 address '%s'", optarg);
+                LOGE("--dns-addr: geçersiz IPv4 adresi '%s'", optarg);
                 return 2;
             }
             gbd_cfg.dns4_enabled = 1;
@@ -167,7 +167,7 @@ int main(int argc, char **argv) {
             break;
         case OPT_DNSV6_ADDR:
             if (inet_pton(AF_INET6, optarg, &gbd_cfg.dns6_addr) != 1) {
-                LOGE("--dnsv6-addr: invalid IPv6 address '%s'", optarg);
+                LOGE("--dnsv6-addr: geçersiz IPv6 adresi '%s'", optarg);
                 return 2;
             }
             gbd_cfg.dns6_enabled = 1;
@@ -187,8 +187,8 @@ int main(int argc, char **argv) {
         }
     }
 
-    LOGI("config: f=%d e=%d auto_ttl=%d reverse=%d fake=%d wrong_seq=%d wrong_chk=%d "
-         "quic=%d set_ttl=%d max_payload=%u dns4=%d dns6=%d queue=%u",
+    LOGI("yapılandırma: f=%d e=%d auto_ttl=%d reverse=%d fake=%d wrong_seq=%d wrong_chk=%d "
+         "quic=%d set_ttl=%d max_payload=%u dns4=%d dns6=%d kuyruk=%u",
          gbd_cfg.frag_http, gbd_cfg.frag_https, gbd_cfg.auto_ttl,
          gbd_cfg.reverse_frag, gbd_cfg.fake_packet,
          gbd_cfg.wrong_seq, gbd_cfg.wrong_chksum,
@@ -203,7 +203,7 @@ int main(int argc, char **argv) {
     signal(SIGPIPE, SIG_IGN);
 
     if (raw_inject_init() < 0) {
-        LOGE("raw_inject_init failed — need CAP_NET_RAW / root");
+        LOGE("raw_inject_init başarısız — CAP_NET_RAW / root gerekli");
         return 1;
     }
 

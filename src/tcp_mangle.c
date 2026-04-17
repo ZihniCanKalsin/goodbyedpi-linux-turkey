@@ -10,8 +10,8 @@
 #include <netinet/tcp.h>
 
 static int looks_like_tls_clienthello(const uint8_t *p, size_t n) {
-    /* TLS record: 0x16 (Handshake), 0x03 0x01/0x02/0x03/0x04 (TLS version).
-     * 6th byte of handshake payload is HandshakeType == 1 (ClientHello). */
+    /* TLS kaydı: 0x16 (Handshake), 0x03 0x01/0x02/0x03/0x04 (TLS sürümü).
+     * Handshake yükünün 6. baytı HandshakeType == 1 (ClientHello)'dır. */
     if (n < 6) return 0;
     if (p[0] != 0x16) return 0;
     if (p[1] != 0x03) return 0;
@@ -30,12 +30,12 @@ static int looks_like_http_request(const uint8_t *p, size_t n) {
     return 0;
 }
 
-/* Detect whether the packet is the kind we'd act on, independent of whether
- * the act is splitting, decoying, or both. Returns:
- *   0 = not a protocol we care about (NF_ACCEPT verbatim).
- *   1 = TLS ClientHello on 443.
- *   2 = HTTP request on 80.
- * Matches upstream's gating on (port, first-bytes, max_payload_size). */
+/* Paket, eylem (bölme, tuzak ya da her ikisi) ne olursa olsun etki
+ * edeceğimiz türden mi? tespit eder. Döndürür:
+ *   0 = önemsediğimiz bir protokol değil (olduğu gibi NF_ACCEPT).
+ *   1 = 443 üzerinde TLS ClientHello.
+ *   2 = 80 üzerinde HTTP isteği.
+ * Üstakımın (port, ilk-baytlar, max_payload_size) kapısıyla eşleşir. */
 static int classify_payload(uint16_t dport, const uint8_t *payload, size_t plen) {
     if (plen < 16) return 0;
     if (gbd_cfg.max_payload_size && plen > gbd_cfg.max_payload_size) return 0;
@@ -50,12 +50,13 @@ static int want_split(int is_https) {
 
 static int effective_decoy_ttl(void) {
     if (gbd_cfg.set_ttl > 0) return gbd_cfg.set_ttl;
-    if (gbd_cfg.auto_ttl)    return 4;   /* simplification; upstream probes */
+    if (gbd_cfg.auto_ttl)    return 4;   /* basitleştirme; üstakım sondalama yapar */
     return 0;
 }
 
-/* Mirrors Windows send_fake_request(): up to three independent decoys,
- * one per enabled mode (ttl, checksum, seq). */
+/* Windows send_fake_request() fonksiyonunu yansıtır: etkinleştirilen mod
+ * başına bir tane olmak üzere en fazla üç bağımsız tuzak (ttl, checksum,
+ * seq). */
 static void emit_fake_decoys_v4(const struct iphdr *ip, const struct tcphdr *tcp,
                                 int is_https)
 {
@@ -121,12 +122,12 @@ int tcp_mangle_ipv4(uint8_t *pkt, size_t pkt_len) {
     if (!cls) return 0;
     int is_https = (cls == 1);
 
-    /* Emit decoys (if configured) regardless of whether we split the real packet.
-     * Upstream: `--set-ttl N` / `--wrong-seq` / `--wrong-chksum` alone still
-     * sends a decoy on every ClientHello / HTTP verb. */
+    /* Gerçek paketi bölsek de bölmesek de tuzakları yayınla (yapılandırılmışsa).
+     * Üstakım: tek başına `--set-ttl N` / `--wrong-seq` / `--wrong-chksum` da
+     * her ClientHello / HTTP fiili üzerinde bir tuzak gönderir. */
     emit_fake_decoys_v4(ip, tcp, is_https);
 
-    if (!want_split(is_https)) return 0;  /* decoy-only path: let original pass. */
+    if (!want_split(is_https)) return 0;  /* sadece-tuzak yolu: orijinali geçir. */
 
     size_t first_len = effective_split_offset(is_https);
     if (plen <= first_len) return 0;

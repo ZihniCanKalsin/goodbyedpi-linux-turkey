@@ -1,16 +1,17 @@
 #!/usr/bin/env bash
-# _common.sh — sourced by every turkey_*.sh variant. Locates the daemon
-# binary, installs the correct iptables rules, wires cleanup on exit.
+# _common.sh — her turkey_*.sh varyantı tarafından kaynaklanır. Daemon
+# binary'sinin yerini bulur, doğru iptables kurallarını kurar ve çıkışta
+# temizliği bağlar.
 #
-# Before sourcing, callers must set:
-#   GBD_ARGS      — the `goodbyedpi-linux` argv (excluding the binary path)
-#   UP_ARGS       — the `iptables-up.sh` argv
-#   QUEUE_NUM     — optional, defaults to 200
+# Kaynaklamadan önce çağıranlar şunları ayarlamalıdır:
+#   GBD_ARGS      — `goodbyedpi-linux` argüman vektörü (binary yolu hariç)
+#   UP_ARGS       — `iptables-up.sh` argüman vektörü
+#   QUEUE_NUM     — opsiyonel, varsayılan 200
 
 set -eu
 
 if [ "$(id -u)" -ne 0 ]; then
-    echo "must be run as root (sudo)" >&2
+    echo "root (sudo) olarak çalıştırılmalıdır" >&2
     exit 1
 fi
 
@@ -19,7 +20,7 @@ LINUX_DIR=$(cd -- "$SCRIPT_DIR/.." && pwd)
 BIN="$LINUX_DIR/goodbyedpi-linux"
 
 if [ ! -x "$BIN" ]; then
-    echo "binary $BIN not found — run 'make' in $LINUX_DIR first" >&2
+    echo "binary $BIN bulunamadı — önce $LINUX_DIR içinde 'make' çalıştırın" >&2
     exit 1
 fi
 
@@ -28,15 +29,17 @@ QUEUE_NUM=${QUEUE_NUM:-200}
 cleanup() {
     "$SCRIPT_DIR/iptables-down.sh" --queue "$QUEUE_NUM" || true
 }
-# Only trap EXIT — bash runs EXIT on any exit path (normal + SIGINT/TERM
-# after the daemon exits), so adding INT/TERM here would double-fire cleanup.
+# Yalnızca EXIT'i tuzakla — bash EXIT'i her çıkış yolunda (normal +
+# SIGINT/TERM, daemon çıkıştan sonra) çalıştırır; INT/TERM eklemek cleanup'ı
+# iki kere çalıştırır.
 trap cleanup EXIT
 
 # shellcheck disable=SC2086
 "$SCRIPT_DIR/iptables-up.sh" --queue "$QUEUE_NUM" $UP_ARGS
 
-echo "starting goodbyedpi-linux ($GBD_ARGS) — Ctrl-C to stop"
-# Run in foreground (NOT exec) so the EXIT trap fires iptables-down.sh on Ctrl-C.
+echo "goodbyedpi-linux başlatılıyor ($GBD_ARGS) — durdurmak için Ctrl-C"
+# Ön planda çalıştır (exec DEĞİL), böylece Ctrl-C'de EXIT tuzağı
+# iptables-down.sh'i tetikler.
 # shellcheck disable=SC2086
 "$BIN" --queue-num "$QUEUE_NUM" $GBD_ARGS
 exit $?

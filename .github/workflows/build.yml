@@ -16,24 +16,24 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install dependencies
+      - name: Bağımlılıkları kur
         run: |
           sudo apt-get update
           sudo apt-get install -y \
             libnetfilter-queue-dev libmnl-dev gcc make pkg-config
 
-      - name: Build
+      - name: Derle
         run: make
 
-      - name: Smoke-test CLI parse path
+      - name: CLI ayrıştırma yolu duman testi
         run: |
           ./goodbyedpi-linux -h | head -3
-          ./goodbyedpi-linux -5 -v 2>&1 | grep 'config:'
+          ./goodbyedpi-linux -5 -v 2>&1 | grep 'yapılandırma:'
           ./goodbyedpi-linux -9 --dns-addr 1.1.1.1 --dns-port 53 2>&1 \
             | grep 'wrong_seq=1 wrong_chk=1 quic=1'
 
-      - name: Lint shell scripts
+      - name: Shell scriptlerini denetle
         run: |
           sudo apt-get install -y shellcheck
-          # -x follows sourced scripts; SC1091 = can't find sourced files on CI
+          # -x kaynaklanan betikleri takip eder; SC1091 = CI'de kaynak bulunamaz
           shellcheck -x -e SC1091 scripts/*.sh

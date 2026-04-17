@@ -17,12 +17,13 @@
 
 volatile int gbd_stop = 0;
 
-/* Heuristic direction: if dst-port or src-port matches known server ports,
- * treat it as outbound/inbound. NFQUEUE hook is OUTPUT (always outbound for
- * the local socket) or INPUT (inbound reply); we distinguish by the nfmark
- * or the in/out ifindex. Simpler: outbound vs inbound is encoded by which
- * iptables chain queued it — we attach two queues in that case. For this
- * implementation we use a single queue and infer from port semantics. */
+/* Sezgisel yön: dst-port ya da src-port bilinen sunucu portlarına uyarsa
+ * paketi giden/gelen olarak değerlendir. NFQUEUE kancası OUTPUT (yerel
+ * soket için her zaman giden) ya da INPUT (gelen cevap); nfmark ya da
+ * in/out ifindex ile ayırt ederiz. Daha basiti: giden ile gelen, paketi
+ * hangi iptables zincirinin kuyruklandığıyla belirtilir — o durumda iki
+ * kuyruk kullanırız. Bu uygulamada tek kuyruk kullanıyor ve port
+ * semantiklerinden çıkarım yapıyoruz. */
 
 static int handle_ipv4(uint8_t *data, size_t len, int *verdict,
                        uint8_t **out_buf, size_t *out_len) {
@@ -136,21 +137,21 @@ static int cb(struct nfq_q_handle *qh, struct nfgenmsg *nfmsg,
 
 int nfq_loop_run(void) {
     struct nfq_handle *h = nfq_open();
-    if (!h) { LOGE("nfq_open failed: %s", strerror(errno)); return -1; }
+    if (!h) { LOGE("nfq_open başarısız: %s", strerror(errno)); return -1; }
 
-    /* These unbind/bind calls are no-ops on modern kernels but harmless. */
+    /* Bu unbind/bind çağrıları güncel çekirdeklerde no-op, ama zararsız. */
     nfq_unbind_pf(h, AF_INET);
     nfq_bind_pf(h, AF_INET);
     nfq_bind_pf(h, AF_INET6);
 
     struct nfq_q_handle *qh = nfq_create_queue(h, gbd_cfg.queue_num, &cb, NULL);
     if (!qh) {
-        LOGE("nfq_create_queue(%u) failed: %s", gbd_cfg.queue_num, strerror(errno));
+        LOGE("nfq_create_queue(%u) başarısız: %s", gbd_cfg.queue_num, strerror(errno));
         nfq_close(h);
         return -1;
     }
     if (nfq_set_mode(qh, NFQNL_COPY_PACKET, 0xFFFF) < 0) {
-        LOGE("nfq_set_mode failed");
+        LOGE("nfq_set_mode başarısız");
         nfq_destroy_queue(qh);
         nfq_close(h);
         return -1;
@@ -158,7 +159,7 @@ int nfq_loop_run(void) {
     nfq_set_queue_maxlen(qh, 4096);
 
     int fd = nfq_fd(h);
-    LOGI("listening on NFQUEUE #%u", gbd_cfg.queue_num);
+    LOGI("NFQUEUE #%u dinleniyor", gbd_cfg.queue_num);
 
     char buf[65536] __attribute__((aligned(8)));
     while (!gbd_stop) {
@@ -173,14 +174,14 @@ int nfq_loop_run(void) {
         ssize_t n = recv(fd, buf, sizeof buf, 0);
         if (n < 0) {
             if (errno == EINTR) continue;
-            if (errno == ENOBUFS) { LOGD("ENOBUFS, dropping"); continue; }
+            if (errno == ENOBUFS) { LOGD("ENOBUFS, düşürülüyor"); continue; }
             LOGE("recv: %s", strerror(errno));
             break;
         }
         nfq_handle_packet(h, buf, (int)n);
     }
 
-    LOGI("shutting down NFQ loop");
+    LOGI("NFQ döngüsü kapatılıyor");
     nfq_destroy_queue(qh);
     nfq_close(h);
     return 0;

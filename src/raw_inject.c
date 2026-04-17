@@ -15,7 +15,7 @@ static int sock6 = -1;
 int raw_inject_init(void) {
     sock4 = socket(AF_INET, SOCK_RAW, IPPROTO_RAW);
     if (sock4 < 0) {
-        LOGE("socket(AF_INET, SOCK_RAW, IPPROTO_RAW) failed: %s", strerror(errno));
+        LOGE("socket(AF_INET, SOCK_RAW, IPPROTO_RAW) başarısız: %s", strerror(errno));
         return -1;
     }
     int one = 1;
@@ -23,7 +23,7 @@ int raw_inject_init(void) {
 
     sock6 = socket(AF_INET6, SOCK_RAW, IPPROTO_RAW);
     if (sock6 < 0) {
-        LOGI("IPv6 raw socket unavailable (%s); IPv6 TCP mangling disabled", strerror(errno));
+        LOGI("IPv6 ham soket kullanılamıyor (%s); IPv6 TCP değişimi devre dışı", strerror(errno));
         sock6 = -1;
     } else {
         int hdrincl = 1;
@@ -93,7 +93,7 @@ int raw_inject_tcp4(const struct iphdr *tpl_ip,
 
     ssize_t n = sendto(sock4, buf, total, 0, (struct sockaddr *)&dst, sizeof dst);
     if (n < 0) {
-        LOGD("raw_inject_tcp4 sendto failed: %s", strerror(errno));
+        LOGD("raw_inject_tcp4 sendto başarısız: %s", strerror(errno));
         return -1;
     }
     return 0;
@@ -149,7 +149,7 @@ int raw_inject_tcp6(const struct ip6_hdr *tpl_ip6,
 
     ssize_t n = sendto(sock6, buf, total, 0, (struct sockaddr *)&dst, sizeof dst);
     if (n < 0) {
-        LOGD("raw_inject_tcp6 sendto failed: %s", strerror(errno));
+        LOGD("raw_inject_tcp6 sendto başarısız: %s", strerror(errno));
         return -1;
     }
     return 0;

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# SuperOnline alternative 2 — mirrors turkey_dnsredir_alternative2_superonline.cmd
+# SuperOnline alternatif 2 — turkey_dnsredir_alternative2_superonline.cmd'in karşılığı
 #   goodbyedpi.exe -5
 GBD_ARGS="-5"
 UP_ARGS=""

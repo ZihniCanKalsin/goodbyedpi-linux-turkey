@@ -21,12 +21,12 @@ struct gbd_config {
     int wrong_seq;
     int wrong_chksum;
     int reverse_frag;
-    int max_payload;              /* CLI marker, kept for compatibility */
-    uint16_t max_payload_size;    /* skip fragmenting when TCP payload > this; 0 = no cap */
+    int max_payload;              /* CLI işaretçisi; uyumluluk için korunur */
+    uint16_t max_payload_size;    /* TCP yükü bu değerden büyükse bölme; 0 = sınırsız */
     int auto_ttl;
     int set_ttl;
     int block_quic;
-    int fake_packet;              /* emit fake decoy segment(s) ahead of the real split */
+    int fake_packet;              /* gerçek bölmeden önce sahte tuzak segment(ler) yayınla */
 
     int dns4_enabled;
     struct in_addr  dns4_addr;

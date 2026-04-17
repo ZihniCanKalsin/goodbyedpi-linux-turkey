@@ -1,16 +1,16 @@
 #!/usr/bin/env bash
-# iptables-up.sh — install NFQUEUE rules for goodbyedpi-linux.
-# Idempotent: rules that already exist are not duplicated.
+# iptables-up.sh — goodbyedpi-linux için NFQUEUE kurallarını kurar.
+# Idempotent: zaten mevcut olan kurallar tekrar eklenmez.
 #
-# Usage: sudo ./iptables-up.sh [options]
-#   --queue N              NFQUEUE number (default: 200)
-#   --dns4                 enable UDP/53 queueing (outbound)
-#   --dns4-addr IP         DNS server IP used by daemon (for INPUT reverse rule)
-#   --dns4-port N          DNS server port used by daemon
-#   --dns6                 enable IPv6 UDP/53 queueing
-#   --dns6-addr IP6        IPv6 DNS server
-#   --dns6-port N          IPv6 DNS server port
-#   --quic                 enable UDP/443 (QUIC) queueing
+# Kullanım: sudo ./iptables-up.sh [seçenekler]
+#   --queue N              NFQUEUE numarası (varsayılan: 200)
+#   --dns4                 giden UDP/53 kuyruklamasını etkinleştir
+#   --dns4-addr IP         daemon'un kullandığı DNS sunucusu IP'si (INPUT ters kuralı için)
+#   --dns4-port N          daemon'un kullandığı DNS sunucu portu
+#   --dns6                 IPv6 UDP/53 kuyruklamasını etkinleştir
+#   --dns6-addr IP6        IPv6 DNS sunucusu
+#   --dns6-port N          IPv6 DNS sunucu portu
+#   --quic                 UDP/443 (QUIC) kuyruklamasını etkinleştir
 
 set -eu
 
@@ -29,22 +29,23 @@ while [ $# -gt 0 ]; do
         --dns6-addr) DNS6_ADDR="$2"; shift 2 ;;
         --dns6-port) DNS6_PORT="$2"; shift 2 ;;
         --quic)      QUIC=1; shift ;;
-        *) echo "unknown arg: $1" >&2; exit 2 ;;
+        *) echo "bilinmeyen argüman: $1" >&2; exit 2 ;;
     esac
 done
 
 if [ "$(id -u)" -ne 0 ]; then
-    echo "must be run as root (sudo)" >&2
+    echo "root (sudo) olarak çalıştırılmalıdır" >&2
     exit 1
 fi
 
-# Best-effort: ensure kernel modules are loaded. Harmless if already in-kernel.
+# En iyi çaba: çekirdek modüllerinin yüklü olduğundan emin ol. Zaten
+# çekirdek içinde varsa zararsız.
 modprobe nfnetlink_queue 2>/dev/null || true
 modprobe xt_NFQUEUE      2>/dev/null || true
 modprobe ip6_tables      2>/dev/null || true
 
 add_rule() {
-    # $1=ipcmd, rest=rule args. Only adds if no identical rule exists.
+    # $1=ipcmd, geri kalanı=kural argümanları. Aynı kural varsa eklemez.
     local ipcmd="$1"; shift
     if ! "$ipcmd" -C "$@" 2>/dev/null; then
         "$ipcmd" -I "$@"
@@ -86,4 +87,4 @@ if command -v ip6tables >/dev/null 2>&1; then
     fi
 fi
 
-echo "iptables NFQUEUE rules installed (queue #$QUEUE)"
+echo "iptables NFQUEUE kuralları kuruldu (kuyruk #$QUEUE)"

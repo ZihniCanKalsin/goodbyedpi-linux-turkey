@@ -1,6 +1,6 @@
-/* Fake decoy payloads — copied verbatim from GoodbyeDPI upstream
- * (fakepackets.c) so the on-wire decoy bytes are identical across
- * Windows/WinDivert and Linux/NFQUEUE for the same preset. */
+/* Sahte tuzak yükleri — aynı ön ayar için kablo üzerindeki tuzak baytları
+ * Windows/WinDivert ile Linux/NFQUEUE arasında özdeş olsun diye
+ * GoodbyeDPI üstakımından (fakepackets.c) olduğu gibi kopyalanmıştır. */
 
 #include "fake_payloads.h"
 

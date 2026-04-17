@@ -1,11 +1,12 @@
 #!/usr/bin/env bash
-# goodbyedpi-linux-uninstall.sh — stop the background daemon started by
-# goodbyedpi-linux-install.sh and remove iptables rules. Idempotent.
+# goodbyedpi-linux-uninstall.sh — goodbyedpi-linux-install.sh ile
+# başlatılan arka plan daemon'unu durdurur ve iptables kurallarını
+# kaldırır. Idempotent.
 
 set -eu
 
 if [ "$(id -u)" -ne 0 ]; then
-    echo "must be run as root (sudo)" >&2
+    echo "root (sudo) olarak çalıştırılmalıdır" >&2
     exit 1
 fi
 
@@ -17,20 +18,20 @@ if [ -f "$PID_FILE" ]; then
     PID=$(cat "$PID_FILE")
     if kill -0 "$PID" 2>/dev/null; then
         kill -TERM "$PID" || true
-        # Wait up to 5s for graceful exit, then SIGKILL if still around.
+        # Düzgün çıkış için 5 saniyeye kadar bekle, hâlâ varsa SIGKILL uygula.
         for _ in 1 2 3 4 5; do
             kill -0 "$PID" 2>/dev/null || break
             sleep 1
         done
         if kill -0 "$PID" 2>/dev/null; then
-            echo "daemon (PID $PID) did not exit in time; SIGKILLing"
+            echo "daemon (PID $PID) zamanında çıkmadı; SIGKILL gönderiliyor"
             kill -KILL "$PID" || true
         fi
     fi
-    # The daemon's EXIT trap usually runs iptables-down already; do it again
-    # to be safe (idempotent).
+    # Daemon'un EXIT tuzağı genelde iptables-down'ı çağırır; güvende olmak
+    # için tekrar çalıştırıyoruz (idempotent).
     rm -f "$PID_FILE"
 fi
 
 "$SCRIPT_DIR/iptables-down.sh" --queue "$QUEUE" || true
-echo "goodbyedpi-linux stopped and iptables rules cleaned"
+echo "goodbyedpi-linux durduruldu ve iptables kuralları temizlendi"
