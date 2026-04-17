@@ -26,6 +26,7 @@ fi
 
 QUEUE_NUM=${QUEUE_NUM:-200}
 
+# shellcheck disable=SC2317  # çağrılıyor: trap cleanup EXIT
 cleanup() {
     "$SCRIPT_DIR/iptables-down.sh" --queue "$QUEUE_NUM" || true
 }

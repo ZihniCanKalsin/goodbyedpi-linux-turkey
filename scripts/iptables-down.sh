@@ -29,7 +29,7 @@ wipe_chain() {
                | grep -E -- "--queue-num $QUEUE( |$)" \
                | head -1 || true)
         [ -n "$line" ] || break
-        local rule_args=${line#-A $chain }
+        local rule_args=${line#-A "$chain" }
         # shellcheck disable=SC2086
         "$ipcmd" -D "$chain" $rule_args || break
         i=$((i + 1))
