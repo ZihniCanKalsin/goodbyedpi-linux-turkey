@@ -4,6 +4,9 @@
 #
 # Kullanım: sudo ./iptables-up.sh [seçenekler]
 #   --queue N              NFQUEUE numarası (varsayılan: 200)
+#   --mark HEX             daemon'un kendi enjekte ettiği paketleri taşıyan
+#                          fwmark; bu kural setinden hariç tutulur
+#                          (varsayılan: 0xCEE1, src/util.h GBD_FWMARK ile eşleşmeli)
 #   --dns4                 giden UDP/53 kuyruklamasını etkinleştir
 #   --dns4-addr IP         daemon'un kullandığı DNS sunucusu IP'si (INPUT ters kuralı için)
 #   --dns4-port N          daemon'un kullandığı DNS sunucu portu
@@ -11,10 +14,16 @@
 #   --dns6-addr IP6        IPv6 DNS sunucusu
 #   --dns6-port N          IPv6 DNS sunucu portu
 #   --quic                 UDP/443 (QUIC) kuyruklamasını etkinleştir
+#
+# Önemli: --mark hariç tutması, daemon'un raw soketle gönderdiği sahte
+# tuzakların ve TCP parçalarının kendi kuyruğuna geri düşmesini engeller.
+# Bu olmadan kuyruk dolar (ENOBUFS), yasal trafik düşer ve ana makinede
+# internet kopar.
 
 set -eu
 
 QUEUE=200
+MARK=0xCEE1
 DNS4=0; DNS4_ADDR=""; DNS4_PORT=53
 DNS6=0; DNS6_ADDR=""; DNS6_PORT=53
 QUIC=0
@@ -22,6 +31,7 @@ QUIC=0
 while [ $# -gt 0 ]; do
     case "$1" in
         --queue)     QUEUE="$2"; shift 2 ;;
+        --mark)      MARK="$2"; shift 2 ;;
         --dns4)      DNS4=1; shift ;;
         --dns4-addr) DNS4_ADDR="$2"; shift 2 ;;
         --dns4-port) DNS4_PORT="$2"; shift 2 ;;
@@ -53,10 +63,12 @@ add_rule() {
 }
 
 add_rule iptables OUTPUT -p tcp -m multiport --dports 80,443 \
+         -m mark ! --mark "$MARK" \
          -j NFQUEUE --queue-num "$QUEUE" --queue-bypass
 
 if [ "$DNS4" = "1" ]; then
     add_rule iptables OUTPUT -p udp --dport 53 \
+             -m mark ! --mark "$MARK" \
              -j NFQUEUE --queue-num "$QUEUE" --queue-bypass
     if [ -n "$DNS4_ADDR" ]; then
         add_rule iptables INPUT -p udp -s "$DNS4_ADDR" --sport "$DNS4_PORT" \
@@ -66,15 +78,18 @@ fi
 
 if [ "$QUIC" = "1" ]; then
     add_rule iptables OUTPUT -p udp --dport 443 \
+             -m mark ! --mark "$MARK" \
              -j NFQUEUE --queue-num "$QUEUE" --queue-bypass
 fi
 
 # IPv6
 if command -v ip6tables >/dev/null 2>&1; then
     add_rule ip6tables OUTPUT -p tcp -m multiport --dports 80,443 \
+             -m mark ! --mark "$MARK" \
              -j NFQUEUE --queue-num "$QUEUE" --queue-bypass
     if [ "$DNS6" = "1" ]; then
         add_rule ip6tables OUTPUT -p udp --dport 53 \
+                 -m mark ! --mark "$MARK" \
                  -j NFQUEUE --queue-num "$QUEUE" --queue-bypass
         if [ -n "$DNS6_ADDR" ]; then
             add_rule ip6tables INPUT -p udp -s "$DNS6_ADDR" --sport "$DNS6_PORT" \
@@ -83,8 +98,9 @@ if command -v ip6tables >/dev/null 2>&1; then
     fi
     if [ "$QUIC" = "1" ]; then
         add_rule ip6tables OUTPUT -p udp --dport 443 \
+                 -m mark ! --mark "$MARK" \
                  -j NFQUEUE --queue-num "$QUEUE" --queue-bypass
     fi
 fi
 
-echo "iptables NFQUEUE kuralları kuruldu (kuyruk #$QUEUE)"
+echo "iptables NFQUEUE kuralları kuruldu (kuyruk #$QUEUE, mark $MARK hariç)"

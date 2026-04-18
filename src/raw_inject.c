@@ -5,6 +5,7 @@
 #include <sys/socket.h>
 #include <sys/types.h>
 #include <unistd.h>
+#include <stdint.h>
 #include <string.h>
 #include <errno.h>
 #include <arpa/inet.h>
@@ -21,6 +22,19 @@ int raw_inject_init(void) {
     int one = 1;
     (void)setsockopt(sock4, IPPROTO_IP, IP_HDRINCL, &one, sizeof one);
 
+    /* Mark every packet we inject so the companion iptables rule
+     * (-m mark ! --mark GBD_FWMARK) lets it bypass our NFQUEUE target.
+     * Without this, decoys and fragments re-enter the queue, get
+     * reclassified as ClientHello/HTTP, trigger more decoys, fill the
+     * queue (ENOBUFS), and the host loses connectivity. */
+    uint32_t mark = GBD_FWMARK;
+    if (setsockopt(sock4, SOL_SOCKET, SO_MARK, &mark, sizeof mark) < 0) {
+        LOGE("setsockopt(SO_MARK) IPv4 başarısız: %s — NFQUEUE geri besleme döngüsü riski", strerror(errno));
+        close(sock4);
+        sock4 = -1;
+        return -1;
+    }
+
     sock6 = socket(AF_INET6, SOCK_RAW, IPPROTO_RAW);
     if (sock6 < 0) {
         LOGI("IPv6 ham soket kullanılamıyor (%s); IPv6 TCP değişimi devre dışı", strerror(errno));
@@ -28,6 +42,11 @@ int raw_inject_init(void) {
     } else {
         int hdrincl = 1;
         (void)setsockopt(sock6, IPPROTO_IPV6, IPV6_HDRINCL, &hdrincl, sizeof hdrincl);
+        if (setsockopt(sock6, SOL_SOCKET, SO_MARK, &mark, sizeof mark) < 0) {
+            LOGI("setsockopt(SO_MARK) IPv6 başarısız (%s); IPv6 TCP değişimi devre dışı", strerror(errno));
+            close(sock6);
+            sock6 = -1;
+        }
     }
     return 0;
 }
