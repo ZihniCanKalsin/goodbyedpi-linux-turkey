@@ -13,7 +13,7 @@
  * yeniden yazımını tersine çevirebiliriz.
  * Anahtar = (istemci src ip, istemci src port, dns txid). */
 #define MAP_SIZE 4096
-#define MAP_TTL_SEC 30
+#define MAP_TTL_SEC 120
 
 struct map4 {
     uint8_t  used;
@@ -61,7 +61,7 @@ static uint32_t hash6(const uint8_t *a, uint16_t b, uint16_t c) {
 }
 
 static uint16_t read_txid(const uint8_t *udp_payload, size_t plen) {
-    if (plen < 2) return 0;
+    if (plen < 12) return 0; /* require full DNS header minimum */
     return ((uint16_t)udp_payload[0] << 8) | udp_payload[1];
 }
 
@@ -69,6 +69,7 @@ static void map4_put(uint32_t saddr, uint16_t sport, uint16_t txid,
                      uint32_t orig_daddr, uint16_t orig_dport) {
     uint32_t h = hash4(saddr, sport, txid);
     time_t now = time(NULL);
+    struct map4 *victim = NULL;
     for (int i = 0; i < 8; i++) {
         struct map4 *e = &map4_[(h + i) & (MAP_SIZE - 1)];
         if (!e->used || e->expire < now ||
@@ -79,7 +80,12 @@ static void map4_put(uint32_t saddr, uint16_t sport, uint16_t txid,
             e->expire = now + MAP_TTL_SEC;
             return;
         }
+        if (!victim || e->expire < victim->expire) victim = e;
     }
+    /* All 8 slots occupied and unexpired — evict the oldest. */
+    victim->saddr = saddr; victim->sport = sport; victim->txid = txid;
+    victim->orig_daddr = orig_daddr; victim->orig_dport = orig_dport;
+    victim->expire = now + MAP_TTL_SEC;
 }
 
 static int map4_get(uint32_t saddr, uint16_t sport, uint16_t txid,
@@ -102,6 +108,7 @@ static void map6_put(const uint8_t *saddr, uint16_t sport, uint16_t txid,
                      const uint8_t *orig_daddr, uint16_t orig_dport) {
     uint32_t h = hash6(saddr, sport, txid);
     time_t now = time(NULL);
+    struct map6 *victim = NULL;
     for (int i = 0; i < 8; i++) {
         struct map6 *e = &map6_[(h + i) & (MAP_SIZE - 1)];
         if (!e->used || e->expire < now ||
@@ -114,7 +121,14 @@ static void map6_put(const uint8_t *saddr, uint16_t sport, uint16_t txid,
             e->expire = now + MAP_TTL_SEC;
             return;
         }
+        if (!victim || e->expire < victim->expire) victim = e;
     }
+    /* All 8 slots occupied and unexpired — evict the oldest. */
+    memcpy(victim->saddr, saddr, 16);
+    victim->sport = sport; victim->txid = txid;
+    memcpy(victim->orig_daddr, orig_daddr, 16);
+    victim->orig_dport = orig_dport;
+    victim->expire = now + MAP_TTL_SEC;
 }
 
 static int map6_get(const uint8_t *saddr, uint16_t sport, uint16_t txid,
@@ -138,7 +152,9 @@ int dns_redir_out_ipv4(uint8_t *pkt, size_t pkt_len) {
     if (pkt_len < sizeof(struct iphdr)) return 0;
     struct iphdr *ip = (struct iphdr *)pkt;
     if (ip->protocol != IPPROTO_UDP) return 0;
+    if (ip->ihl < 5) return 0;
     size_t iph_len = ip->ihl * 4u;
+    if (ip->frag_off & htons(0x3FFF)) return 0;
     if (pkt_len < iph_len + sizeof(struct udphdr)) return 0;
     struct udphdr *udp = (struct udphdr *)(pkt + iph_len);
     if (ntohs(udp->dest) != 53) return 0;
@@ -147,6 +163,7 @@ int dns_redir_out_ipv4(uint8_t *pkt, size_t pkt_len) {
     if (udp_len < sizeof(struct udphdr)) return 0;
     uint8_t *payload = (uint8_t *)udp + sizeof(struct udphdr);
     size_t plen = udp_len - sizeof(struct udphdr);
+    if (plen < 12) return 0; /* malformed DNS header — no txid to track */
     uint16_t txid = read_txid(payload, plen);
 
     map4_put(ip->saddr, udp->source, txid, ip->daddr, udp->dest);
@@ -165,7 +182,9 @@ int dns_redir_in_ipv4(uint8_t *pkt, size_t pkt_len) {
     if (pkt_len < sizeof(struct iphdr)) return 0;
     struct iphdr *ip = (struct iphdr *)pkt;
     if (ip->protocol != IPPROTO_UDP) return 0;
+    if (ip->ihl < 5) return 0;
     size_t iph_len = ip->ihl * 4u;
+    if (ip->frag_off & htons(0x3FFF)) return 0;
     if (pkt_len < iph_len + sizeof(struct udphdr)) return 0;
     struct udphdr *udp = (struct udphdr *)(pkt + iph_len);
     if (ip->saddr != gbd_cfg.dns4_addr.s_addr) return 0;
@@ -174,6 +193,7 @@ int dns_redir_in_ipv4(uint8_t *pkt, size_t pkt_len) {
     size_t udp_len = pkt_len - iph_len;
     uint8_t *payload = (uint8_t *)udp + sizeof(struct udphdr);
     size_t plen = udp_len - sizeof(struct udphdr);
+    if (plen < 12) return 0;
     uint16_t txid = read_txid(payload, plen);
 
     uint32_t orig_daddr; uint16_t orig_dport;
@@ -202,6 +222,7 @@ int dns_redir_out_ipv6(uint8_t *pkt, size_t pkt_len) {
     size_t udp_len = pkt_len - iph_len;
     uint8_t *payload = (uint8_t *)udp + sizeof(struct udphdr);
     size_t plen = udp_len - sizeof(struct udphdr);
+    if (plen < 12) return 0;
     uint16_t txid = read_txid(payload, plen);
 
     map6_put((uint8_t *)&ip6->ip6_src, udp->source, txid,
@@ -228,6 +249,7 @@ int dns_redir_in_ipv6(uint8_t *pkt, size_t pkt_len) {
     size_t udp_len = pkt_len - iph_len;
     uint8_t *payload = (uint8_t *)udp + sizeof(struct udphdr);
     size_t plen = udp_len - sizeof(struct udphdr);
+    if (plen < 12) return 0;
     uint16_t txid = read_txid(payload, plen);
 
     uint8_t orig_daddr[16]; uint16_t orig_dport;

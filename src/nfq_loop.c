@@ -28,8 +28,10 @@ volatile int gbd_stop = 0;
 static int handle_ipv4(uint8_t *data, size_t len, int *verdict,
                        uint8_t **out_buf, size_t *out_len) {
     struct iphdr *ip = (struct iphdr *)data;
+    if (ip->ihl < 5) { *verdict = NF_ACCEPT; return 0; }
     size_t iph_len = ip->ihl * 4u;
     if (len < iph_len) { *verdict = NF_ACCEPT; return 0; }
+    if (ip->frag_off & htons(0x3FFF)) { *verdict = NF_ACCEPT; return 0; }
 
     if (ip->protocol == IPPROTO_UDP && len >= iph_len + sizeof(struct udphdr)) {
         struct udphdr *udp = (struct udphdr *)(data + iph_len);
@@ -161,7 +163,13 @@ int nfq_loop_run(void) {
     int fd = nfq_fd(h);
     LOGI("NFQUEUE #%u dinleniyor", gbd_cfg.queue_num);
 
-    char buf[65536] __attribute__((aligned(8)));
+    char *buf = aligned_alloc(8, 65536);
+    if (!buf) {
+        LOGE("NFQUEUE arabelleği ayrılamadı");
+        nfq_destroy_queue(qh);
+        nfq_close(h);
+        return -1;
+    }
     while (!gbd_stop) {
         struct pollfd pfd = { .fd = fd, .events = POLLIN };
         int pr = poll(&pfd, 1, 500);
@@ -182,6 +190,7 @@ int nfq_loop_run(void) {
     }
 
     LOGI("NFQ döngüsü kapatılıyor");
+    free(buf);
     nfq_destroy_queue(qh);
     nfq_close(h);
     return 0;

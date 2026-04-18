@@ -8,7 +8,19 @@
 #include <signal.h>
 #include <getopt.h>
 #include <errno.h>
+#include <limits.h>
 #include <arpa/inet.h>
+
+static long parse_long(const char *s, long lo, long hi, const char *opt) {
+    char *end;
+    errno = 0;
+    long v = strtol(s, &end, 10);
+    if (errno || *end || end == s || v < lo || v > hi) {
+        LOGE("%s: geçersiz değer '%s' (beklenen %ld..%ld)", opt, s, lo, hi);
+        exit(2);
+    }
+    return v;
+}
 
 static void usage(const char *argv0) {
     fprintf(stderr,
@@ -87,6 +99,7 @@ static void on_signal(int sig) {
 enum {
     OPT_AUTO_TTL = 1000,
     OPT_REVERSE_FRAG,
+    OPT_FAKE_PACKET,
     OPT_WRONG_SEQ,
     OPT_WRONG_CHKSUM,
     OPT_MAX_PAYLOAD,
@@ -107,6 +120,7 @@ int main(int argc, char **argv) {
     static const struct option long_opts[] = {
         {"auto-ttl",      no_argument,       NULL, OPT_AUTO_TTL},
         {"reverse-frag",  no_argument,       NULL, OPT_REVERSE_FRAG},
+        {"fake-packet",   no_argument,       NULL, OPT_FAKE_PACKET},
         {"wrong-seq",     no_argument,       NULL, OPT_WRONG_SEQ},
         {"wrong-chksum",  no_argument,       NULL, OPT_WRONG_CHKSUM},
         {"max-payload",   no_argument,       NULL, OPT_MAX_PAYLOAD},
@@ -125,8 +139,8 @@ int main(int argc, char **argv) {
         switch (c) {
         case '5': gbd_cfg.preset5 = 1; apply_preset_5(); break;
         case '9': gbd_cfg.preset9 = 1; apply_preset_9(); break;
-        case 'f': gbd_cfg.frag_http  = atoi(optarg); break;
-        case 'e': gbd_cfg.frag_https = atoi(optarg); break;
+        case 'f': gbd_cfg.frag_http  = (int)parse_long(optarg, 1, 65535, "-f"); break;
+        case 'e': gbd_cfg.frag_https = (int)parse_long(optarg, 1, 65535, "-e"); break;
         case 'q': gbd_cfg.block_quic = 1; break;
         case 'v': gbd_verbose = 1; break;
         case OPT_AUTO_TTL:
@@ -135,6 +149,7 @@ int main(int argc, char **argv) {
             gbd_cfg.fake_packet = 1;
             break;
         case OPT_REVERSE_FRAG: gbd_cfg.reverse_frag = 1; break;
+        case OPT_FAKE_PACKET: gbd_cfg.fake_packet = 1; break;
         case OPT_WRONG_SEQ:
             /* üstakım: --wrong-seq do_fake_packet=1 anlamına gelir */
             gbd_cfg.wrong_seq = 1;
@@ -147,11 +162,7 @@ int main(int argc, char **argv) {
             break;
         case OPT_MAX_PAYLOAD:  gbd_cfg.max_payload = 1; break;
         case OPT_SET_TTL:
-            gbd_cfg.set_ttl = atoi(optarg);
-            if (gbd_cfg.set_ttl < 1 || gbd_cfg.set_ttl > 255) {
-                LOGE("--set-ttl 1..255 aralığında olmalıdır");
-                return 2;
-            }
+            gbd_cfg.set_ttl = (int)parse_long(optarg, 1, 255, "--set-ttl");
             /* üstakım: --set-ttl N do_fake_packet=1 anlamına gelir */
             gbd_cfg.fake_packet = 1;
             break;
@@ -163,7 +174,7 @@ int main(int argc, char **argv) {
             gbd_cfg.dns4_enabled = 1;
             break;
         case OPT_DNS_PORT:
-            gbd_cfg.dns4_port = (uint16_t)atoi(optarg);
+            gbd_cfg.dns4_port = (uint16_t)parse_long(optarg, 1, 65535, "--dns-port");
             break;
         case OPT_DNSV6_ADDR:
             if (inet_pton(AF_INET6, optarg, &gbd_cfg.dns6_addr) != 1) {
@@ -173,10 +184,10 @@ int main(int argc, char **argv) {
             gbd_cfg.dns6_enabled = 1;
             break;
         case OPT_DNSV6_PORT:
-            gbd_cfg.dns6_port = (uint16_t)atoi(optarg);
+            gbd_cfg.dns6_port = (uint16_t)parse_long(optarg, 1, 65535, "--dnsv6-port");
             break;
         case OPT_QUEUE_NUM:
-            gbd_cfg.queue_num = (unsigned)atoi(optarg);
+            gbd_cfg.queue_num = (unsigned)parse_long(optarg, 0, 65535, "--queue-num");
             break;
         case 'h':
             usage(argv[0]);

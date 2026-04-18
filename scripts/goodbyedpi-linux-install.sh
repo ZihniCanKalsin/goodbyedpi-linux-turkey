@@ -47,7 +47,7 @@ fi
 # Varyant scriptini ayrık olarak çalıştır. setsid yeni bir oturum açar,
 # böylece terminal kapansa da daemon asılı kalmaz; nohup stdout/stderr'i
 # yeniden yönlendirir.
-setsid nohup "$VARIANT_SH" >>"$LOG_FILE" 2>&1 &
+GBD_INSTALL_MODE=1 setsid nohup "$VARIANT_SH" >>"$LOG_FILE" 2>&1 &
 echo $! > "$PID_FILE"
 sleep 0.5
 
