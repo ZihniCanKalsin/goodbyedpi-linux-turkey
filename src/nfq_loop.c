@@ -163,7 +163,8 @@ int nfq_loop_run(void) {
     int fd = nfq_fd(h);
     LOGI("NFQUEUE #%u dinleniyor", gbd_cfg.queue_num);
 
-    char *buf = aligned_alloc(8, 65536);
+    enum { NFQ_BUF_SIZE = 65536 };
+    char *buf = aligned_alloc(8, NFQ_BUF_SIZE);
     if (!buf) {
         LOGE("NFQUEUE arabelleği ayrılamadı");
         nfq_destroy_queue(qh);
@@ -179,7 +180,8 @@ int nfq_loop_run(void) {
             break;
         }
         if (pr == 0) continue;
-        ssize_t n = recv(fd, buf, sizeof buf, 0);
+        /* buf bir işaretçi; sabit boyutu geç, aksi halde sizeof buf==8 olur. */
+        ssize_t n = recv(fd, buf, NFQ_BUF_SIZE, 0);
         if (n < 0) {
             if (errno == EINTR) continue;
             if (errno == ENOBUFS) { LOGD("ENOBUFS, düşürülüyor"); continue; }

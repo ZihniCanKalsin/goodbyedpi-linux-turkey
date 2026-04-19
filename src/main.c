@@ -9,6 +9,7 @@
 #include <getopt.h>
 #include <errno.h>
 #include <limits.h>
+#include <unistd.h>
 #include <arpa/inet.h>
 
 static long parse_long(const char *s, long lo, long hi, const char *opt) {
@@ -212,6 +213,14 @@ int main(int argc, char **argv) {
     sigaction(SIGINT,  &sa, NULL);
     sigaction(SIGTERM, &sa, NULL);
     signal(SIGPIPE, SIG_IGN);
+
+    /* Açık bir teşhis: raw soketler ve NFQUEUE için etkin uid 0 ya da
+     * CAP_NET_ADMIN+CAP_NET_RAW gerekir. CAP_NET_ADMIN'i taşıyan root olmayan
+     * çağrılar yine denesin; geteuid!=0 ise açık bir mesajla düşeriz. */
+    if (geteuid() != 0) {
+        LOGE("root (ya da CAP_NET_ADMIN + CAP_NET_RAW yetkili setcap) gerekli");
+        return 1;
+    }
 
     if (raw_inject_init() < 0) {
         LOGE("raw_inject_init başarısız — CAP_NET_RAW / root gerekli");

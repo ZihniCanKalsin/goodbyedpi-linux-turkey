@@ -38,11 +38,42 @@ if [ "$(id -u)" -ne 0 ]; then
     exit 1
 fi
 
+# iptables kurulu mu? Modern bazı dağıtımlarda yalnızca 'nft' olabilir;
+# o durumda iptables-nft shim'inin de yüklü olması gerekir.
+if ! command -v iptables >/dev/null 2>&1; then
+    echo "iptables bulunamadı — paketi kurun (iptables veya iptables-nft)" >&2
+    exit 1
+fi
+
 # En iyi çaba: çekirdek modüllerinin yüklü olduğundan emin ol. Zaten
-# çekirdek içinde varsa zararsız.
-modprobe nfnetlink_queue 2>/dev/null || true
-modprobe xt_NFQUEUE      2>/dev/null || true
-modprobe ip6_tables      2>/dev/null || true
+# çekirdek içinde varsa zararsız; embedded/minimal sistemlerde modprobe
+# bulunmayabilir — bu durumda sessizce atlanır.
+if command -v modprobe >/dev/null 2>&1; then
+    modprobe nfnetlink_queue 2>/dev/null || true
+    modprobe xt_NFQUEUE      2>/dev/null || true
+    modprobe ip6_tables      2>/dev/null || true
+fi
+
+# NFQUEUE hedefi gerçekten kullanılabilir mi? Geçici bir RETURN zinciri
+# oluşturup içine NFQUEUE eklemeye çalışırız; başarısız olursa çekirdekte
+# xt_NFQUEUE yok demektir.
+_nfq_probe_chain="gbd_nfq_probe_$$"
+if ! iptables -N "$_nfq_probe_chain" 2>/dev/null; then
+    # zaten varsa (önceki başarısız çalıştırma) temizle
+    iptables -F "$_nfq_probe_chain" 2>/dev/null || true
+    iptables -X "$_nfq_probe_chain" 2>/dev/null || true
+    # Tekrar denemek istiyoruz ama 'set -e' altında bir hata bizi devirmesin:
+    # eğer hâlâ yaratamıyorsak, aşağıdaki -A çağrısı temiz bir hata verecek.
+    iptables -N "$_nfq_probe_chain" 2>/dev/null || true
+fi
+if ! iptables -A "$_nfq_probe_chain" -j NFQUEUE --queue-num "$QUEUE" --queue-bypass 2>/dev/null; then
+    iptables -X "$_nfq_probe_chain" 2>/dev/null || true
+    echo "çekirdek NFQUEUE hedefini desteklemiyor (xt_NFQUEUE yüklü değil)" >&2
+    echo "çekirdek modülünü yükleyin veya NFQUEUE destekli bir çekirdek çalıştırın" >&2
+    exit 1
+fi
+iptables -F "$_nfq_probe_chain" 2>/dev/null || true
+iptables -X "$_nfq_probe_chain" 2>/dev/null || true
 
 add_rule() {
     # $1=ipcmd, geri kalanı=kural argümanları. Aynı kural varsa eklemez.
