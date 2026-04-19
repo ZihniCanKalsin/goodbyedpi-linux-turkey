@@ -128,7 +128,7 @@ fi
 cat > "$UNIT_PATH" <<EOF
 [Unit]
 Description=goodbyedpi-linux (Turkey fork DPI bypass) - $VARIANT
-Documentation=https://github.com/OWNER/goodbyedpi-linux-turkey
+Documentation=https://github.com/ZihniCanKalsin/goodbyedpi-linux-turkey
 After=network-online.target nss-lookup.target
 Wants=network-online.target
 # Sonsuz yeniden başlatma önleme: 60 saniyede 5 arıza üst üste geldiyse

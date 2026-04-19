@@ -11,9 +11,9 @@ olarak uzaktan kötü amaçlı bir TCP/DNS paketi ile tetiklenebilecek
 Sorumlu açıklama için:
 
 - **Kamuya açık** genel hatalar / iyileştirmeler →
-  [GitHub Issues](https://github.com/OWNER/goodbyedpi-linux-turkey/issues).
+  [GitHub Issues](https://github.com/ZihniCanKalsin/goodbyedpi-linux-turkey/issues).
 - **Doğrudan güvenlik raporları** →
-  [GitHub güvenlik açığı raporu](https://github.com/OWNER/goodbyedpi-linux-turkey/security/advisories/new)
+  [GitHub güvenlik açığı raporu](https://github.com/ZihniCanKalsin/goodbyedpi-linux-turkey/security/advisories/new)
   (özel repo öncesi koordineli açıklama imkânı sağlar).
 
 Lütfen herkese açık issue açmadan önce aşağıdaki türleri doğrudan

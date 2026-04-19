@@ -150,7 +150,7 @@ Linux çekirdeğiniz nfnetlink_queue modülünü (NFQUEUE) sunmalıdır —
 her güncel dağıtım çekirdeği sunar.
 
 Tanımadığımız paket yöneticiniz varsa
-https://github.com/OWNER/goodbyedpi-linux-turkey adresinde issue açın;
+https://github.com/ZihniCanKalsin/goodbyedpi-linux-turkey adresinde issue açın;
 deps-install.sh'a eklenebilir.
 EOF
     exit 1
