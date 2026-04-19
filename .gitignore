@@ -29,3 +29,7 @@ core.*
 
 # Claude Code per-user permissions (shared .claude/settings.json may still be committed)
 .claude/settings.local.json
+
+# AI Agent Dev Notes
+CODE_REVIEW.md
+FIXED_BUGS.md

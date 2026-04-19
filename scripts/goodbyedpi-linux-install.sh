@@ -34,20 +34,40 @@ if [ ! -x "$VARIANT_SH" ]; then
     exit 1
 fi
 
-PID_FILE="/var/run/goodbyedpi-linux.pid"
-LOG_FILE="/var/log/goodbyedpi-linux.log"
+# Modern sistemler /run kullanır; /var/run tipik olarak simlinktir ama her
+# dağıtımda öyle olmayabilir. /run varsa onu tercih ederiz.
+if [ -d /run ]; then
+    PID_FILE="${PID_FILE:-/run/goodbyedpi-linux.pid}"
+else
+    PID_FILE="${PID_FILE:-/var/run/goodbyedpi-linux.pid}"
+fi
+if [ -d /var/log ]; then
+    LOG_FILE="${LOG_FILE:-/var/log/goodbyedpi-linux.log}"
+else
+    LOG_FILE="${LOG_FILE:-/tmp/goodbyedpi-linux.log}"
+fi
 
-# Önceki bir daemon hâlâ çalışıyorsa reddet.
-if [ -f "$PID_FILE" ] && kill -0 "$(cat "$PID_FILE")" 2>/dev/null; then
-    echo "daemon zaten çalışıyor (PID $(cat "$PID_FILE"))" >&2
-    echo "önce goodbyedpi-linux-uninstall.sh'i çalıştırın" >&2
-    exit 1
+# Önceki bir daemon hâlâ çalışıyorsa reddet. PID dosyası bozulmuşsa veya
+# güncel değilse sessizce temizle.
+if [ -f "$PID_FILE" ]; then
+    OLD_PID=$(cat "$PID_FILE" 2>/dev/null || true)
+    case "$OLD_PID" in
+        ''|*[!0-9]*) rm -f "$PID_FILE" ;;
+        *)
+            if kill -0 "$OLD_PID" 2>/dev/null; then
+                echo "daemon zaten çalışıyor (PID $OLD_PID)" >&2
+                echo "önce goodbyedpi-linux-uninstall.sh'i çalıştırın" >&2
+                exit 1
+            fi
+            rm -f "$PID_FILE"
+            ;;
+    esac
 fi
 
 # Varyant scriptini ayrık olarak çalıştır. setsid yeni bir oturum açar,
 # böylece terminal kapansa da daemon asılı kalmaz; nohup stdout/stderr'i
 # yeniden yönlendirir.
-setsid nohup "$VARIANT_SH" >>"$LOG_FILE" 2>&1 &
+GBD_INSTALL_MODE=1 setsid nohup "$VARIANT_SH" >>"$LOG_FILE" 2>&1 &
 echo $! > "$PID_FILE"
 sleep 0.5
 

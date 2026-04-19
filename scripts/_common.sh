@@ -26,6 +26,16 @@ fi
 
 QUEUE_NUM=${QUEUE_NUM:-200}
 
+if [ "${GBD_INSTALL_MODE:-0}" = "1" ]; then
+    # Install mode execs the daemon so the PID observed by the installer is
+    # the actual goodbyedpi-linux process rather than a wrapper shell.
+    # shellcheck disable=SC2086
+    "$SCRIPT_DIR/iptables-up.sh" --queue "$QUEUE_NUM" $UP_ARGS
+    echo "goodbyedpi-linux daemon olarak başlatılıyor ($GBD_ARGS)"
+    # shellcheck disable=SC2086
+    exec "$BIN" --queue-num "$QUEUE_NUM" $GBD_ARGS
+fi
+
 # shellcheck disable=SC2317  # çağrılıyor: trap cleanup EXIT
 cleanup() {
     "$SCRIPT_DIR/iptables-down.sh" --queue "$QUEUE_NUM" || true

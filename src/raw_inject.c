@@ -6,6 +6,7 @@
 #include <sys/types.h>
 #include <unistd.h>
 #include <stdint.h>
+#include <stdlib.h>
 #include <string.h>
 #include <errno.h>
 #include <arpa/inet.h>
@@ -66,19 +67,27 @@ int raw_inject_tcp4(const struct iphdr *tpl_ip,
 
     size_t tcp_len = sizeof(struct tcphdr) + payload_len;
     size_t total   = sizeof(struct iphdr) + tcp_len;
-    if (total > 1500) return -1;
+    if (total > UINT16_MAX) {
+        LOGD("raw_inject_tcp4 paket çok büyük: %zu", total);
+        return -1;
+    }
 
-    uint8_t buf[1500];
+    uint8_t *buf = malloc(total);
+    if (!buf) {
+        LOGE("raw_inject_tcp4 malloc(%zu) başarısız", total);
+        return -1;
+    }
     memset(buf, 0, total);
 
     struct iphdr *ip = (struct iphdr *)buf;
     struct tcphdr *tcp = (struct tcphdr *)(buf + sizeof(struct iphdr));
 
+    static uint16_t ip_id_ctr = 0;
     ip->version  = 4;
     ip->ihl      = 5;
     ip->tos      = tpl_ip->tos;
     ip->tot_len  = htons((uint16_t)total);
-    ip->id       = 0;
+    ip->id       = htons(++ip_id_ctr);
     ip->frag_off = htons(0x4000);
     ip->ttl      = (ttl > 0) ? (uint8_t)ttl : (tpl_ip->ttl ? tpl_ip->ttl : 64);
     ip->protocol = IPPROTO_TCP;
@@ -111,6 +120,7 @@ int raw_inject_tcp4(const struct iphdr *tpl_ip,
     dst.sin_addr.s_addr = ip->daddr;
 
     ssize_t n = sendto(sock4, buf, total, 0, (struct sockaddr *)&dst, sizeof dst);
+    free(buf);
     if (n < 0) {
         LOGD("raw_inject_tcp4 sendto başarısız: %s", strerror(errno));
         return -1;
@@ -127,9 +137,16 @@ int raw_inject_tcp6(const struct ip6_hdr *tpl_ip6,
 
     size_t tcp_len = sizeof(struct tcphdr) + payload_len;
     size_t total   = sizeof(struct ip6_hdr) + tcp_len;
-    if (total > 1500) return -1;
+    if (tcp_len > UINT16_MAX) {
+        LOGD("raw_inject_tcp6 payload çok büyük: %zu", tcp_len);
+        return -1;
+    }
 
-    uint8_t buf[1500];
+    uint8_t *buf = malloc(total);
+    if (!buf) {
+        LOGE("raw_inject_tcp6 malloc(%zu) başarısız", total);
+        return -1;
+    }
     memset(buf, 0, total);
 
     struct ip6_hdr *ip6 = (struct ip6_hdr *)buf;
@@ -167,6 +184,7 @@ int raw_inject_tcp6(const struct ip6_hdr *tpl_ip6,
     dst.sin6_addr   = ip6->ip6_dst;
 
     ssize_t n = sendto(sock6, buf, total, 0, (struct sockaddr *)&dst, sizeof dst);
+    free(buf);
     if (n < 0) {
         LOGD("raw_inject_tcp6 sendto başarısız: %s", strerror(errno));
         return -1;

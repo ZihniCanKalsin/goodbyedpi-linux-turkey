@@ -66,7 +66,7 @@ static void emit_fake_decoys_v4(const struct iphdr *ip, const struct tcphdr *tcp
     size_t         dlen = is_https ? fake_https_request_len : fake_http_request_len;
 
     int ttl = effective_decoy_ttl();
-    if (ttl > 0) {
+    if (ttl > 0 || (!gbd_cfg.wrong_chksum && !gbd_cfg.wrong_seq)) {
         raw_inject_tcp4(ip, tcp, data, dlen, ttl, 0, 0);
     }
     if (gbd_cfg.wrong_chksum) {
@@ -87,7 +87,7 @@ static void emit_fake_decoys_v6(const struct ip6_hdr *ip6, const struct tcphdr *
     size_t         dlen = is_https ? fake_https_request_len : fake_http_request_len;
 
     int hop = effective_decoy_ttl();
-    if (hop > 0) {
+    if (hop > 0 || (!gbd_cfg.wrong_chksum && !gbd_cfg.wrong_seq)) {
         raw_inject_tcp6(ip6, tcp, data, dlen, hop, 0, 0);
     }
     if (gbd_cfg.wrong_chksum) {
@@ -108,9 +108,12 @@ int tcp_mangle_ipv4(uint8_t *pkt, size_t pkt_len) {
     if (pkt_len < sizeof(struct iphdr)) return 0;
     struct iphdr *ip = (struct iphdr *)pkt;
     if (ip->protocol != IPPROTO_TCP) return 0;
+    if (ip->ihl < 5) return 0;
     size_t iph_len = ip->ihl * 4u;
+    if (ip->frag_off & htons(0x3FFF)) return 0;
     if (pkt_len < iph_len + sizeof(struct tcphdr)) return 0;
     struct tcphdr *tcp = (struct tcphdr *)(pkt + iph_len);
+    if (tcp->doff < 5) return 0;
     size_t tcph_len = tcp->doff * 4u;
     if (pkt_len < iph_len + tcph_len) return 0;
 
@@ -135,17 +138,19 @@ int tcp_mangle_ipv4(uint8_t *pkt, size_t pkt_len) {
     uint32_t base_seq  = ntohl(tcp->seq);
     size_t   second_len = plen - first_len;
 
+    int r1, r2;
     if (gbd_cfg.reverse_frag) {
-        raw_inject_tcp4(ip, tcp, payload + first_len, second_len,
-                        0, base_seq + first_len, 0);
-        raw_inject_tcp4(ip, tcp, payload, first_len,
-                        0, base_seq, 0);
+        r1 = raw_inject_tcp4(ip, tcp, payload + first_len, second_len,
+                             0, base_seq + first_len, 0);
+        r2 = raw_inject_tcp4(ip, tcp, payload, first_len,
+                             0, base_seq, 0);
     } else {
-        raw_inject_tcp4(ip, tcp, payload, first_len,
-                        0, base_seq, 0);
-        raw_inject_tcp4(ip, tcp, payload + first_len, second_len,
-                        0, base_seq + first_len, 0);
+        r1 = raw_inject_tcp4(ip, tcp, payload, first_len,
+                             0, base_seq, 0);
+        r2 = raw_inject_tcp4(ip, tcp, payload + first_len, second_len,
+                             0, base_seq + first_len, 0);
     }
+    if (r1 < 0 || r2 < 0) return 0;
     return 1;
 }
 
@@ -156,6 +161,7 @@ int tcp_mangle_ipv6(uint8_t *pkt, size_t pkt_len) {
     size_t iph_len = sizeof(struct ip6_hdr);
     if (pkt_len < iph_len + sizeof(struct tcphdr)) return 0;
     struct tcphdr *tcp = (struct tcphdr *)(pkt + iph_len);
+    if (tcp->doff < 5) return 0;
     size_t tcph_len = tcp->doff * 4u;
     if (pkt_len < iph_len + tcph_len) return 0;
 
@@ -177,16 +183,18 @@ int tcp_mangle_ipv6(uint8_t *pkt, size_t pkt_len) {
     uint32_t base_seq  = ntohl(tcp->seq);
     size_t   second_len = plen - first_len;
 
+    int r1, r2;
     if (gbd_cfg.reverse_frag) {
-        raw_inject_tcp6(ip6, tcp, payload + first_len, second_len,
-                        0, base_seq + first_len, 0);
-        raw_inject_tcp6(ip6, tcp, payload, first_len,
-                        0, base_seq, 0);
+        r1 = raw_inject_tcp6(ip6, tcp, payload + first_len, second_len,
+                             0, base_seq + first_len, 0);
+        r2 = raw_inject_tcp6(ip6, tcp, payload, first_len,
+                             0, base_seq, 0);
     } else {
-        raw_inject_tcp6(ip6, tcp, payload, first_len,
-                        0, base_seq, 0);
-        raw_inject_tcp6(ip6, tcp, payload + first_len, second_len,
-                        0, base_seq + first_len, 0);
+        r1 = raw_inject_tcp6(ip6, tcp, payload, first_len,
+                             0, base_seq, 0);
+        r2 = raw_inject_tcp6(ip6, tcp, payload + first_len, second_len,
+                             0, base_seq + first_len, 0);
     }
+    if (r1 < 0 || r2 < 0) return 0;
     return 1;
 }
