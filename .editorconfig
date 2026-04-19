@@ -1,0 +1,19 @@
+root = true
+
+[*]
+indent_style = space
+indent_size = 4
+end_of_line = lf
+charset = utf-8
+insert_final_newline = true
+trim_trailing_whitespace = true
+
+[Makefile]
+indent_style = tab
+
+[*.{yml,yaml,json}]
+indent_size = 2
+
+[*.md]
+# Markdown trailing whitespace is sometimes significant (hard line break)
+trim_trailing_whitespace = false

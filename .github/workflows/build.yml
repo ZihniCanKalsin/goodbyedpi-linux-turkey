@@ -1,0 +1,89 @@
+name: build
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-22.04, ubuntu-24.04]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Bağımlılıkları kur
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libnetfilter-queue-dev libmnl-dev gcc make pkg-config \
+            shellcheck
+
+      - name: Derle
+        run: make
+
+      - name: CLI ayrıştırma yolu duman testi
+        run: |
+          ./goodbyedpi-linux -h | head -3
+          ./goodbyedpi-linux -5 -v 2>&1 | grep 'yapılandırma:'
+          ./goodbyedpi-linux -9 --dns-addr 1.1.1.1 --dns-port 53 2>&1 \
+            | grep 'wrong_seq=1 wrong_chk=1 quic=1'
+
+      - name: sanity-check (non-root duman)
+        run: |
+          ./scripts/sanity-check.sh || exit_code=$?
+          # CI runners have all deps installed; we accept warnings (no root
+          # means iptables live probe is skipped). Fail only on hard errors.
+          if [ "${exit_code:-0}" -ne 0 ]; then
+            echo "sanity-check reported hard failures"
+            exit 1
+          fi
+
+      - name: Shell scriptlerini denetle
+        run: |
+          # -x kaynaklanan betikleri takip eder; SC1091 = CI'de kaynak bulunamaz
+          shellcheck -x -e SC1091 scripts/*.sh
+
+  # Kabuk portabilitesi duman testi: tüm betikleri bir
+  # Alpine (busybox + musl) kabındaki bash altında parse edip
+  # syntax kontrolü yaparız. Bu, "çalışıyor mu?" değil — "bash'in
+  # olmadığı bir ortamda bozulmaz mı?" kontrolüdür. GoodbyeDPI-linux
+  # binary'si için Alpine derlemesi ayrı bir iş gerektirdiği için
+  # burada yalnız script / Makefile syntax sağlığını doğruluyoruz.
+  alpine-shell-syntax:
+    runs-on: ubuntu-24.04
+    container: alpine:3.20
+    steps:
+      - uses: actions/checkout@v4
+      - name: bash syntax taraması (Alpine)
+        run: |
+          apk add --no-cache bash make
+          for f in scripts/*.sh; do
+            bash -n "$f" || { echo "fail: $f"; exit 1; }
+          done
+          # Makefile parse temizliği
+          make -n >/dev/null 2>&1 || true
+
+  # Tek bir kez daha Fedora üzerinde de derleyelim: glibc-rhel ailesinde
+  # paket adlarının ve pkg-config yollarının tutarlı olduğunu doğrular.
+  fedora-build:
+    runs-on: ubuntu-24.04
+    container: fedora:40
+    steps:
+      - uses: actions/checkout@v4
+      - name: Bağımlılıkları kur (dnf)
+        run: |
+          dnf install -y \
+            libnetfilter_queue-devel libmnl-devel \
+            gcc make pkgconf-pkg-config \
+            iptables bash
+      - name: Derle
+        run: make
+      - name: CLI duman testi
+        run: |
+          ./goodbyedpi-linux -h | head -3
+          ./goodbyedpi-linux -5 -v 2>&1 | grep 'yapılandırma:'

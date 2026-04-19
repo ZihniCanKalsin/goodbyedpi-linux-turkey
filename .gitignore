@@ -1,0 +1,42 @@
+# C build artifacts
+*.o
+*.a
+*.so
+*.d
+goodbyedpi-linux
+
+# Editor / IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Windows NTFS "mark of the web" metadata streams — appear if the repo
+# ever gets cut-copied through a Windows filesystem.
+*:Zone.Identifier
+*Zone.Identifier
+
+# Runtime artifacts
+*.log
+*.pid
+core
+core.*
+
+# Local test scratch
+/tmp/
+
+# Claude Code local state. settings.local.json holds per-session
+# permission grants (domain allowlists, shell-command allowlists), and
+# scheduled_tasks.lock pins a current session id; neither should ever
+# leave the local machine. A shared `.claude/settings.json` (hooks,
+# team-wide config) CAN be committed if this project ever adds one —
+# un-ignore it explicitly when doing so.
+.claude/settings.local.json
+.claude/scheduled_tasks.lock
+.claude/projects/
+
+# AI Agent Dev Notes
+CODE_REVIEW.md
+FIXED_BUGS.md
