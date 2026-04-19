@@ -36,8 +36,24 @@ elif command -v zypper >/dev/null 2>&1; then
         libnetfilter_queue-devel libmnl-devel gcc make pkg-config iptables
 elif command -v apk >/dev/null 2>&1; then
     apk add libnetfilter_queue-dev libmnl-dev gcc make pkgconf iptables musl-dev linux-headers
+elif command -v xbps-install >/dev/null 2>&1; then
+    # Void Linux
+    xbps-install -Sy \
+        libnetfilter_queue-devel libmnl-devel gcc make pkg-config iptables
+elif command -v emerge >/dev/null 2>&1; then
+    # Gentoo — başlıklar runtime paketlerine gömülüdür.
+    emerge --noreplace \
+        net-libs/libnetfilter_queue net-libs/libmnl \
+        sys-devel/gcc sys-devel/make dev-util/pkgconf \
+        net-firewall/iptables
 else
-    echo "desteklenen bir paket yöneticisi bulunamadı; bağımlılıkları manuel kurun" >&2
+    echo "desteklenen bir paket yöneticisi bulunamadı." >&2
+    echo "bağımlılıkları manuel kurun:" >&2
+    echo "  - libnetfilter_queue geliştirme başlıkları" >&2
+    echo "  - libmnl geliştirme başlıkları" >&2
+    echo "  - gcc (veya cc), make, pkg-config" >&2
+    echo "  - iptables (ip6tables dahil)" >&2
+    echo "NixOS kullanıcıları: nix-shell -p libnetfilter_queue libmnl gcc gnumake pkg-config iptables" >&2
     exit 1
 fi
 

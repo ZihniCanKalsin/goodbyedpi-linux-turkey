@@ -105,9 +105,10 @@ script başlangıçta `modprobe` ile yükler) ve **root** (ya da
 `CAP_NET_ADMIN` + `CAP_NET_RAW`).
 
 `scripts/deps-install.sh` yardımcı scripti yerel paket yöneticisini
-(`apt-get`, `dnf`, `yum`, `pacman`, `zypper`, `apk`) algılayıp doğru
-paketleri kurar. Dağıtımınız bu listede yoksa aşağıdakilerin karşılıklarını
-manuel olarak kurun:
+(`apt-get`, `dnf`, `yum`, `pacman`, `zypper`, `apk`, `xbps-install`,
+`emerge`) algılayıp doğru paketleri kurar. `make`'den önce çalıştırın —
+aksi halde `pkg-config` hataları alırsınız. Dağıtımınız bu listede yoksa
+(ör. NixOS) aşağıdakilerin karşılıklarını manuel olarak kurun:
 
 | Paket (Debian/Ubuntu) | Diğer dağıtımlardaki karşılığı                          |
 |---|---|
