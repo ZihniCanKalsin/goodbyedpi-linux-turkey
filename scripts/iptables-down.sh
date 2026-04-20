@@ -64,7 +64,8 @@ fi
 
 # Drop any residual UDP conntrack entries so a previously-DNATted DNS flow
 # doesn't keep steering queries to the alt resolver once we're torn down.
-command -v conntrack >/dev/null 2>&1 && \
+if command -v conntrack >/dev/null 2>&1; then
     conntrack -D -p udp --dport 53 >/dev/null 2>&1 || true
+fi
 
 echo "iptables kuralları (kuyruk #$QUEUE + DNS DNAT) kaldırıldı"

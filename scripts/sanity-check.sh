@@ -181,7 +181,7 @@ section "derlenmiş ikili"
 SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 BIN="$SCRIPT_DIR/../goodbyedpi-linux"
 if [ -x "$BIN" ]; then
-    ok "goodbyedpi-linux derlenmiş: $(ls -lh "$BIN" | awk '{print $5}')"
+    ok "goodbyedpi-linux derlenmiş: $(stat -c%s "$BIN" | numfmt --to=iec)"
 else
     warn "goodbyedpi-linux henüz derlenmemiş — 'make' çalıştırın"
 fi
