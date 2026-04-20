@@ -181,7 +181,20 @@ section "derlenmiş ikili"
 SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 BIN="$SCRIPT_DIR/../goodbyedpi-linux"
 if [ -x "$BIN" ]; then
-    ok "goodbyedpi-linux derlenmiş: $(stat -c%s "$BIN" | numfmt --to=iec)"
+    # Dosya boyutunu dağıtım-bağımsız okuruz: GNU stat, BSD stat ve busybox
+    # stat bayrakları uyuşmaz; numfmt da yalnız GNU coreutils'te bulunur.
+    # wc -c her yerde vardır, IEC biçimini bash aritmetiğiyle üretiriz.
+    _sz=$(wc -c < "$BIN" 2>/dev/null | tr -d ' ')
+    if [ -n "${_sz:-}" ] && [ "$_sz" -gt 0 ] 2>/dev/null; then
+        if   [ "$_sz" -ge 1073741824 ]; then _pretty="$((_sz / 1073741824))G"
+        elif [ "$_sz" -ge 1048576 ];    then _pretty="$((_sz / 1048576))M"
+        elif [ "$_sz" -ge 1024 ];       then _pretty="$((_sz / 1024))K"
+        else                                 _pretty="${_sz}B"
+        fi
+        ok "goodbyedpi-linux derlenmiş: $_pretty"
+    else
+        ok "goodbyedpi-linux derlenmiş"
+    fi
 else
     warn "goodbyedpi-linux henüz derlenmemiş — 'make' çalıştırın"
 fi

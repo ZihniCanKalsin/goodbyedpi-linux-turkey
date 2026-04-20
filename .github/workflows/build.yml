@@ -35,7 +35,8 @@ jobs:
 
       - name: sanity-check (non-root duman)
         run: |
-          ./scripts/sanity-check.sh || exit_code=$?
+          # bash ile çağırıyoruz ki checkout'ta x-biti kaybolursa bile çalışsın
+          bash ./scripts/sanity-check.sh || exit_code=$?
           # CI runners have all deps installed; we accept warnings (no root
           # means iptables live probe is skipped). Fail only on hard errors.
           if [ "${exit_code:-0}" -ne 0 ]; then
