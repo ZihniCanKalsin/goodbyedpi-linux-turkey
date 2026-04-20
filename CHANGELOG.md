@@ -4,7 +4,7 @@ Bu projedeki önemli değişiklikler burada belgelenir.
 Biçim [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)'u takip eder
 ve proje [Anlamsal Sürümleme](https://semver.org/spec/v2.0.0.html)'ye uyar.
 
-## [Yayımlanmadı]
+## [1.0.0] - 2026-04-20
 
 ### Eklenenler
 - `scripts/service-install.sh` — etkileşimli menüyle bir varyant
@@ -65,6 +65,14 @@ ve proje [Anlamsal Sürümleme](https://semver.org/spec/v2.0.0.html)'ye uyar.
   ediyor.
 - `scripts/iptables-down.sh` NAT/OUTPUT üzerindeki DNS DNAT kurallarını
   ve artık-DNAT'lı UDP conntrack girdilerini de temizliyor.
+
+### Kod kalitesi / CI
+- `scripts/iptables-down.sh`: `conntrack` varlık kontrolü `A && B || C`
+  kalıbından açık `if ... fi` bloğuna çevrildi (shellcheck SC2015). Davranış
+  aynı; silme komutu başarısız olursa `|| true` hâlâ hatayı yutuyor.
+- `scripts/sanity-check.sh`: ikili dosya boyutu raporlaması `ls -lh | awk`
+  yerine `stat -c%s | numfmt --to=iec` kullanıyor (shellcheck SC2012).
+  GNU coreutils bulunan tüm popüler dağıtımlarda aynı çıktı.
 
 ## [0.1.0] - 2026-04-17
 
