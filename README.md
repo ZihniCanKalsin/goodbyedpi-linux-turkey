@@ -28,6 +28,7 @@ mevcut kullanıcılar zihinsel modellerini değiştirmeden Windows'tan Linux'a
 - [Desteklenen dağıtımlar](#desteklenen-dağıtımlar)
 - [Kullanım — varyant tablosu](#kullanım--varyant-tablosu)
 - [Kalıcı çalıştırma](#kalıcı-çalıştırma)
+- [VPN ve Cloudflare WARP ile birlikte kullanım](#vpn-ve-cloudflare-warp-ile-birlikte-kullanım)
 - [Nasıl çalışır?](#nasıl-çalışır)
 - [Bayrak referansı](#bayrak-referansı)
 - [Sorun giderme](#sorun-giderme)
@@ -331,6 +332,63 @@ mekanizmasını kullanın — yaygın seçenekler:
 # ya da isterseniz kendi systemd biriminizi yazın
 ```
 
+## VPN ve Cloudflare WARP ile birlikte kullanım
+
+Şifreli bir tünelin içinden geçen trafiği ISS'nin DPI kutusu zaten
+göremez. O trafiği bölmek, QUIC'ini düşürmek ya da DNS'ini yönlendirmek
+hiçbir şey kazandırmaz; yalnızca tüneli bozar — düşük TTL'li tuzak
+paketler tünelin öbür ucundaki yakın sunucuya ulaşıp TLS oturumunu
+öldürür (WARP'ta ilk ölen DoH olur, DNS gidince internet kesilir).
+
+Bu yüzden kurallar şu trafiğe varsayılan olarak **dokunmaz**:
+
+| Hariç tutulan | Ne anlama gelir |
+|---|---|
+| çıkış arayüzü `CloudflareWARP` | WARP tünelinin içinden giden her şey (tünel içi DoH dahil). |
+| fwmark `0x100cf` | `warp-svc`'nin fiziksel arayüzden çıkan kendi soketleri: tünelin taşıyıcı bağlantısı (WireGuard ya da MASQUE / UDP 443) ve DoH. |
+
+WARP için ek bir ayar gerekmez; goodbyedpi-linux ile WARP'ı hangi sırayla
+başlattığınız da fark etmez. WARP kapalıyken trafik yine her zamanki gibi
+işlenir.
+
+**Başka bir VPN** kullanıyorsanız arayüzünü (ve gerekiyorsa VPN
+daemon'unun fwmark'ını) siz ekleyin — boşluk ya da virgülle ayrılmış
+liste, iptables'ın `+` joker karakteri geçerlidir:
+
+```sh
+sudo GBD_EXCLUDE_IFACES="wg0 tun+" scripts/turkey_dnsredir.sh
+sudo GBD_EXCLUDE_IFACES="wg0" GBD_EXCLUDE_MARKS="0xca6c" scripts/turkey_dnsredir.sh
+```
+
+systemd servisi için aynı değişkenleri bir drop-in ile verin:
+
+```sh
+sudo systemctl edit goodbyedpi-linux
+#   [Service]
+#   Environment=GBD_EXCLUDE_IFACES=wg0
+sudo systemctl restart goodbyedpi-linux
+```
+
+VPN'inizin kullandığı fwmark'ı `ip rule` çıktısındaki
+`not from all fwmark 0x…` satırından okuyabilirsiniz (wg-quick için
+`0xca6c`, WARP için `0x100cf`).
+
+`iptables-up.sh`'i elle çağırıyorsanız aynı şey `--exclude-iface AD` ve
+`--exclude-mark HEX` bayraklarıyla (tekrarlanabilir) yapılır;
+`--no-vpn-exclude` varsayılan WARP hariç tutmalarını kapatır.
+
+Hangi kuralın kaç paket yakaladığını görmek için:
+
+```sh
+sudo iptables -vnL GBD_Q200        # RETURN = dokunulmadı, NFQUEUE = daemon'a gitti
+sudo iptables -t nat -vnL GBD_DNS200
+```
+
+> **Güncelleyenler için:** kural düzeni değişti (aşağıya bakın). `git pull`
+> + `make` sonrasında servisi yeniden başlatın
+> (`sudo systemctl restart goodbyedpi-linux`); eski düzendeki kurallar
+> kendiliğinden temizlenir.
+
 ## Nasıl çalışır?
 
 ```
@@ -359,6 +417,16 @@ mekanizmasını kullanın — yaygın seçenekler:
                                    ▼
                     kablo üzerine üretilmiş parçalar / tuzaklar
 ```
+
+Kurallar yerleşik `OUTPUT` zincirine doğrudan yazılmaz. `OUTPUT`'ta
+yalnızca port seçicili atlamalar durur; asıl iş `GBD_Q<kuyruk>` (filter)
+ve `GBD_DNS<kuyruk>` (nat) zincirlerinde yapılır. Bu zincirler önce
+dokunulmayacak trafiği `RETURN` ile geri verir — daemon'un kendi
+enjekte ettiği paketler (fwmark `0xCEE1`) ve
+[VPN / WARP trafiği](#vpn-ve-cloudflare-warp-ile-birlikte-kullanım) —
+kalanını `NFQUEUE`'ya ya da DNS için `DNAT`'a gönderir. `RETURN` paketi
+`OUTPUT`'un geri kalanına bıraktığı için hariç tutulan trafik ufw /
+firewalld gibi başka güvenlik duvarı kurallarını atlamaz.
 
 ### Paket bazlı kararlar
 
@@ -415,9 +483,14 @@ toplamları serbestçe denetlenebilir.
   kaydedin ya da goodbyedpi-linux'u kullanırken o güvenlik duvarı
   servisini durdurun.
 - **Kabloda hiçbir şey değişmiyor** — kuralların kurulu olduğunu
-  (`sudo iptables -S OUTPUT | grep NFQUEUE`) ve daemon'un çalıştığını
+  (`sudo iptables -S | grep GBD_Q`) ve daemon'un çalıştığını
   (`ps -ef | grep goodbyedpi-linux` ya da kalıcı modda
   `/var/log/goodbyedpi-linux.log` takibi) doğrulayın.
+- **VPN / Cloudflare WARP açıkken internet kesiliyor** — tünel trafiği
+  DPI atlatmasından geçmemelidir. WARP varsayılan olarak hariç tutulur;
+  başka bir VPN için arayüzünü `GBD_EXCLUDE_IFACES` ile ekleyin. Bkz.
+  [VPN ve Cloudflare WARP ile birlikte kullanım](#vpn-ve-cloudflare-warp-ile-birlikte-kullanım).
+  Eski bir sürümden geliyorsanız güncelleyip servisi yeniden başlatın.
 - **IPv6 DNS yönlendirmesi hiç tetiklenmiyor** — birçok sistem DNS'i
   yalnız IPv4 üzerinden yapar. `dig -6 @<yerel-çözümleyici> example.com`
   ile test edin ya da yığın çözümleyicinizde IPv6'yı zorlayın.

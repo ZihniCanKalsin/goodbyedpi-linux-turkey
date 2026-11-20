@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
-# iptables-down.sh — verilen kuyruk numarasına (varsayılan 200) işaret
-# eden her NFQUEUE kuralını kaldırır. Tekrar çalıştırılması güvenlidir.
+# iptables-down.sh — iptables-up.sh'in verilen kuyruk numarası (varsayılan
+# 200) için kurduğu her şeyi kaldırır: GBD_Q<N> / GBD_DNS<N> zincirleri ve
+# OUTPUT'taki atlamaları, ayrıca eski sürümlerin OUTPUT'a doğrudan yazdığı
+# NFQUEUE / DNS DNAT kuralları. Tekrar çalıştırılması güvenlidir.
 # İlgisiz iptables kurallarına dokunmaz.
 #
 # Kullanım: sudo ./iptables-down.sh [--queue N]
@@ -20,6 +22,30 @@ if [ "$(id -u)" -ne 0 ]; then
     exit 1
 fi
 
+CHAIN="GBD_Q$QUEUE"
+DNS_CHAIN="GBD_DNS$QUEUE"
+
+# $1=ipcmd $2=tablo $3=zincir — OUTPUT'tan zincire giden atlamaları siler,
+# sonra zinciri boşaltıp kaldırır. Zincir (ya da tablo) yoksa sessizce döner.
+wipe_user_chain() {
+    local ipcmd="$1" table="$2" chain="$3" i=0
+    "$ipcmd" -t "$table" -S "$chain" >/dev/null 2>&1 || return 0
+    while [ $i -lt 50 ]; do
+        local line
+        line=$("$ipcmd" -t "$table" -S OUTPUT 2>/dev/null \
+               | grep -E -- "-j $chain\$" \
+               | head -1 || true)
+        [ -n "$line" ] || break
+        local rule_args=${line#-A OUTPUT }
+        # shellcheck disable=SC2086
+        "$ipcmd" -t "$table" -D OUTPUT $rule_args || break
+        i=$((i + 1))
+    done
+    "$ipcmd" -t "$table" -F "$chain" 2>/dev/null || true
+    "$ipcmd" -t "$table" -X "$chain" 2>/dev/null || true
+}
+
+# Eski düzen: doğrudan OUTPUT / INPUT üzerinde duran NFQUEUE kuralları.
 wipe_chain() {
     local ipcmd="$1" chain="$2" i=0
     # Çok sayıda kopya kural olursa diye 50 yineleme; pratikte 1–2.
@@ -55,11 +81,17 @@ wipe_dns_dnat() {
     done
 }
 
-for c in OUTPUT INPUT; do wipe_chain iptables "$c"; done
-wipe_dns_dnat iptables
+wipe_all() {
+    local ipcmd="$1" c
+    wipe_user_chain "$ipcmd" filter "$CHAIN"
+    wipe_user_chain "$ipcmd" nat "$DNS_CHAIN"
+    for c in OUTPUT INPUT; do wipe_chain "$ipcmd" "$c"; done
+    wipe_dns_dnat "$ipcmd"
+}
+
+wipe_all iptables
 if command -v ip6tables >/dev/null 2>&1; then
-    for c in OUTPUT INPUT; do wipe_chain ip6tables "$c"; done
-    wipe_dns_dnat ip6tables
+    wipe_all ip6tables
 fi
 
 # Drop any residual UDP conntrack entries so a previously-DNATted DNS flow

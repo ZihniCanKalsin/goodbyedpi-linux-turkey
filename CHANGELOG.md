@@ -4,6 +4,34 @@ Bu projedeki önemli değişiklikler burada belgelenir.
 Biçim [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)'u takip eder
 ve proje [Anlamsal Sürümleme](https://semver.org/spec/v2.0.0.html)'ye uyar.
 
+## [Yayımlanmamış]
+
+### Düzeltilenler
+- **Cloudflare WARP ile çakışma (#3).** Kurallar tünelin içinden giden
+  trafiği (`-o CloudflareWARP`) ve `warp-svc`'nin kendi soketlerini
+  (fwmark `0x100cf`) da yakalıyordu: düşük TTL'li tuzak paketler tünelin
+  öbür ucundaki yakın sunucuya ulaşıp WARP'ın DoH oturumunu öldürüyor,
+  `-9` varyantları tünelin UDP/443 (MASQUE) taşıyıcısını düşürüyor, DNS
+  gidince internet kesiliyordu. Bu trafik artık NFQUEUE'ya da DNS
+  DNAT'ına da girmiyor.
+
+### Eklenenler
+- `scripts/iptables-up.sh`: `--exclude-iface AD`, `--exclude-mark HEX`
+  (tekrarlanabilir) ve `--no-vpn-exclude` bayrakları; ayrıca tüm varyant
+  betikleri ve servis üzerinden geçen `GBD_EXCLUDE_IFACES` /
+  `GBD_EXCLUDE_MARKS` ortam değişkenleri. Başka VPN'ler (WireGuard,
+  OpenVPN, ...) aynı yolla hariç tutulabilir.
+
+### Değişenler
+- Kurallar artık yerleşik `OUTPUT` zincirine doğrudan değil, kendi
+  zincirlerimize yazılıyor: `GBD_Q<kuyruk>` (filter) ve
+  `GBD_DNS<kuyruk>` (nat). `OUTPUT`'ta yalnızca port seçicili atlamalar
+  kalıyor. Kuralları elle denetleyenler `iptables -S OUTPUT | grep
+  NFQUEUE` yerine `iptables -S | grep GBD_Q` kullanmalı.
+- `scripts/iptables-down.sh` hem yeni zincirleri hem de eski sürümlerin
+  `OUTPUT`'a doğrudan yazdığı kuralları temizler; güncelleme sonrası
+  servisi yeniden başlatmak yeterlidir.
+
 ## [1.0.0] - 2026-04-20
 
 ### Eklenenler
